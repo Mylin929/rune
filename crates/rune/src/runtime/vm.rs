@@ -901,6 +901,9 @@ impl Vm {
                 },
                 _ => return VmResult::Ok(None),
             },
+            ValueBorrowRef::Ref(..) => {
+                return VmResult::Ok(None);
+            }
         };
 
         match result {
@@ -975,8 +978,14 @@ impl Vm {
         field: &str,
     ) -> VmResult<Option<BorrowMut<'a, Value>>> {
         let target = match vm_try!(target.value_ref()) {
-            ValueRef::Mutable(target) => vm_try!(target.borrow_mut()),
             ValueRef::Inline(actual) => {
+                return err(VmErrorKind::MissingField {
+                    target: actual.type_info(),
+                    field: vm_try!(field.try_to_owned()),
+                });
+            }
+            ValueRef::Mutable(target) => vm_try!(target.borrow_mut()),
+            ValueRef::Ref(actual) => {
                 return err(VmErrorKind::MissingField {
                     target: actual.type_info(),
                     field: vm_try!(field.try_to_owned()),
@@ -1083,6 +1092,7 @@ impl Vm {
                 }
                 _ => VmResult::Ok(false),
             },
+            ValueRef::Ref(..) => VmResult::Ok(false),
         }
     }
 
@@ -1216,6 +1226,7 @@ impl Vm {
                 }
                 _ => None,
             },
+            ValueBorrowRef::Ref(..) => None,
         })
     }
 
@@ -2485,8 +2496,15 @@ impl Vm {
             };
 
             let mut target = match vm_try!(target.value_ref()) {
-                ValueRef::Mutable(target) => vm_try!(target.borrow_mut()),
                 ValueRef::Inline(target) => {
+                    return err(VmErrorKind::UnsupportedIndexSet {
+                        target: target.type_info(),
+                        index: vm_try!(index.type_info()),
+                        value: vm_try!(value.type_info()),
+                    });
+                }
+                ValueRef::Mutable(target) => vm_try!(target.borrow_mut()),
+                ValueRef::Ref(target) => {
                     return err(VmErrorKind::UnsupportedIndexSet {
                         target: target.type_info(),
                         index: vm_try!(index.type_info()),
@@ -2700,6 +2718,7 @@ impl Vm {
                         }
                     }
                 }
+                ValueBorrowRef::Ref(..) => (),
             }
 
             let target = target.clone();
@@ -3278,6 +3297,7 @@ impl Vm {
                 }
                 _ => false,
             },
+            ValueBorrowRef::Ref(..) => false,
         };
 
         vm_try!(out.store(&mut self.stack, is_match));

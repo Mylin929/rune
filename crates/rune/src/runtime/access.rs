@@ -267,9 +267,7 @@ impl Access {
     #[inline(always)]
     fn release(&self) {
         let b = self.0.get();
-
         let b = if b & MASK == 0 { b - 1 } else { 0 };
-
         self.0.set(b);
     }
 
@@ -304,11 +302,8 @@ impl<'a, T: ?Sized> BorrowRef<'a, T> {
     /// ensure that access has been acquired correctly using e.g.
     /// [Access::shared]. Otherwise access can be release incorrectly once
     /// this guard is dropped.
-    pub(crate) fn new(data: &'a T, access: &'a Access) -> Self {
-        Self {
-            data,
-            guard: AccessGuard(access),
-        }
+    pub(crate) unsafe fn new(data: &'a T, guard: AccessGuard<'a>) -> Self {
+        Self { data, guard }
     }
 
     /// Map the reference.
@@ -447,10 +442,10 @@ impl<'a, T: ?Sized> BorrowMut<'a, T> {
     /// ensure that access has been acquired correctly using e.g.
     /// [Access::exclusive]. Otherwise access can be release incorrectly once
     /// this guard is dropped.
-    pub(crate) unsafe fn new(data: &'a mut T, access: &'a Access) -> Self {
+    pub(crate) unsafe fn new(data: &'a mut T, guard: AccessGuard<'a>) -> Self {
         Self {
             data: ptr::NonNull::from(data),
-            guard: AccessGuard(access),
+            guard,
             _marker: PhantomData,
         }
     }
